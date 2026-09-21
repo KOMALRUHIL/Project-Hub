@@ -23,33 +23,40 @@ def generate_audit_history(max_commits=10):
     commits = []
 
     # 1. Attempt Git extraction (if Git is installed and available)
-    git_paths = ['git', r'C:\Program Files\Git\cmd\git.exe', r'C:\Program Files\Git\bin\git.exe']
-    for git_cmd in git_paths:
-        try:
-            cmd = [git_cmd, 'log', f'-{max_commits}', '--format=%h:::%an <%ae>:::%cI:::%s']
-            res = subprocess.run(cmd, cwd=project_root if project_root.is_dir() else backend_dir, capture_output=True, text=True, timeout=3)
-            if res.returncode == 0 and res.stdout.strip():
-                lines = [l.strip() for l in res.stdout.strip().split('\n') if l.strip()]
-                for idx, line in enumerate(lines):
-                    parts = line.split(':::')
-                    h = parts[0].strip()
-                    author = parts[1].strip() if len(parts) > 1 else 'Azure Committer'
-                    dt = parts[2].strip() if len(parts) > 2 else datetime.datetime.now(datetime.timezone.utc).isoformat()
-                    msg = parts[3].strip() if len(parts) > 3 else 'Commit update'
-                    commits.append({
-                        'version': f'v2.4.{max_commits - idx}',
-                        'changedAt': dt,
-                        'changedBy': author,
-                        'commitHash': h,
-                        'commitMessage': msg,
-                        'environment': 'Production-Azure-US',
-                        'deployedBy': 'Azure DevOps Pipeline'
-                    })
-                if commits:
-                    print(f'[AUDIT] Extracted {len(commits)} commits via Git ({git_cmd})')
-                    break
-        except Exception:
-            pass
+    candidate_cwds = [curr_dir, backend_dir, Path.cwd(), project_root]
+    git_paths = ['git', r'C:\Program Files\Git\cmd\git.exe', r'C:\Program Files\Git\bin\git.exe', r'C:\Program Files\Git\mingw64\bin\git.exe']
+    
+    for c_dir in candidate_cwds:
+        if commits:
+            break
+        if not c_dir or not c_dir.is_dir():
+            continue
+        for git_cmd in git_paths:
+            try:
+                cmd = [git_cmd, 'log', f'-{max_commits}', '--format=%h:::%an <%ae>:::%cI:::%s']
+                res = subprocess.run(cmd, cwd=c_dir, capture_output=True, text=True, timeout=5)
+                if res.returncode == 0 and res.stdout.strip():
+                    lines = [l.strip() for l in res.stdout.strip().split('\n') if l.strip()]
+                    for idx, line in enumerate(lines):
+                        parts = line.split(':::')
+                        h = parts[0].strip()
+                        author = parts[1].strip() if len(parts) > 1 else 'Azure Committer'
+                        dt = parts[2].strip() if len(parts) > 2 else datetime.datetime.now(datetime.timezone.utc).isoformat()
+                        msg = parts[3].strip() if len(parts) > 3 else 'Commit update'
+                        commits.append({
+                            'version': f'v2.4.{max_commits - idx}',
+                            'changedAt': dt,
+                            'changedBy': author,
+                            'commitHash': h,
+                            'commitMessage': msg,
+                            'environment': 'Production-Azure-US',
+                            'deployedBy': 'Azure DevOps Pipeline'
+                        })
+                    if commits:
+                        print(f'[AUDIT] Successfully extracted {len(commits)} commits via Git in {c_dir}')
+                        break
+            except Exception:
+                pass
 
     # 2. Local File-System Dynamic Fallback (No typing required!)
     if not commits:
