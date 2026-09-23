@@ -19,6 +19,22 @@ import datetime
 from pydantic import BaseModel
 from typing import List, Dict, Any, Optional
 
+# Automatically load .env file if present in the backend directory
+env_file_path = os.path.join(os.path.dirname(__file__), ".env")
+if os.path.exists(env_file_path):
+    try:
+        with open(env_file_path, "r", encoding="utf-8") as _ef:
+            for _line in _ef:
+                _line = _line.strip()
+                if _line and not _line.startswith("#") and "=" in _line:
+                    _k, _v = _line.split("=", 1)
+                    _k = _k.strip()
+                    _v = _v.strip().strip("'\"")
+                    if _k and _k not in os.environ:
+                        os.environ[_k] = _v
+    except Exception as _e:
+        print("Note loading .env file:", _e)
+
 def safe_json_dumps(obj: Any) -> str:
     """Safely serialize any Python dict / list with datetimes, Timestamps, np integers/floats."""
     def _default(o):
@@ -1606,13 +1622,16 @@ def startup_export_sync():
 CONFIG_PATH = os.path.join(os.path.dirname(__file__), "backend_data", "llm_config.json")
 
 def load_backend_llm_config() -> Dict[str, Any]:
-    default_cfg = {
-        "provider": "azure_ai_foundry",
-        "llama_engine": "azure_ai_foundry", # "azure_ai_foundry", "groq", "ollama", "together", "openrouter"
-        "model": "meta-llama-3.3-70b-instruct",
+    # Default model name supports Llama-4-Maverick-17B-128k-Instruct-v8 or whatever is in AZURE_AI_MODEL
+    default_model = os.environ.get("AZURE_AI_MODEL", os.environ.get("AZURE_MODEL", "Llama-4-Maverick-17B-128k-Instruct-v8"))
+    
+    cfg = {
+        "provider": os.environ.get("LLM_PROVIDER", "azure_ai_foundry"),
+        "llama_engine": os.environ.get("LLAMA_ENGINE", "azure_ai_foundry"),
+        "model": default_model,
         "azure_endpoint": os.environ.get("AZURE_AI_FOUNDRY_ENDPOINT", os.environ.get("AZURE_AI_ENDPOINT", "")),
         "azure_api_key": os.environ.get("AZURE_AI_FOUNDRY_API_KEY", os.environ.get("AZURE_AI_KEY", "")),
-        "azure_model": os.environ.get("AZURE_AI_MODEL", "meta-llama-3.3-70b-instruct"),
+        "azure_model": default_model,
         "groq_api_key": os.environ.get("GROQ_API_KEY", ""),
         "together_api_key": os.environ.get("TOGETHER_API_KEY", ""),
         "openrouter_api_key": os.environ.get("OPENROUTER_API_KEY", ""),
@@ -1621,14 +1640,18 @@ def load_backend_llm_config() -> Dict[str, Any]:
         "gemini_api_key": os.environ.get("GEMINI_API_KEY", ""),
         "openai_api_key": os.environ.get("OPENAI_API_KEY", "")
     }
+    # Load config file if it exists, but environment variables take priority if present
     if os.path.exists(CONFIG_PATH):
         try:
             with open(CONFIG_PATH, "r", encoding="utf-8") as f:
                 saved = json.load(f)
-                default_cfg.update({k: v for k, v in saved.items() if v is not None})
+                for k, v in saved.items():
+                    # Only use saved value if env var is not set or empty
+                    if not cfg.get(k) and v is not None:
+                        cfg[k] = v
         except Exception as e:
             print("Error loading llm_config.json:", e)
-    return default_cfg
+    return cfg
 
 def save_backend_llm_config(cfg: Dict[str, Any]):
     os.makedirs(os.path.dirname(CONFIG_PATH), exist_ok=True)
