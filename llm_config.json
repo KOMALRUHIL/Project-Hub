@@ -1,0 +1,15 @@
+{
+  "provider": "azure_ai_foundry",
+  "llama_engine": "azure_ai_foundry",
+  "model": "meta-llama-3.3-70b-instruct",
+  "azure_endpoint": "",
+  "azure_api_key": "",
+  "azure_model": "meta-llama-3.3-70b-instruct",
+  "groq_api_key": "",
+  "together_api_key": "",
+  "openrouter_api_key": "",
+  "ollama_base_url": "http://localhost:11434",
+  "ollama_model": "llama3.3",
+  "gemini_api_key": "",
+  "openai_api_key": ""
+}
