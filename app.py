@@ -260,25 +260,38 @@ def load_all_medical_bills_map() -> Dict[str, List[Dict[str, Any]]]:
 
 def get_active_input_file() -> Optional[str]:
     """
-    Safely finds the active dataset file, ensuring it exists and is NOT an empty 0-byte file.
-    Falls back gracefully to sample_real_columns.csv if no valid file is found.
+    Safely finds the active claims dataset file by prioritizing the most recently modified/uploaded file in backend_data/.
+    Excludes dedicated medical bills datasets and system derived datasets.
     """
     backend_folder = os.path.join(os.path.dirname(__file__), "backend_data")
     if os.path.exists(backend_folder):
-        for pf in ["input_file.xlsx", "input_file.csv", "upload.xlsx", "upload.csv", "claims_complexity_master.csv"]:
+        user_candidates = []
+        excluded_names = [
+            "claims_complexity_master.csv", "master_derived_dataset.csv", 
+            "medical_bills_input.xlsx", "medical_bills_input.csv",
+            "sample_bills_data.xlsx", "sample_bills_data.csv",
+            "sample_claims.csv"
+        ]
+        for f in os.listdir(backend_folder):
+            f_lower = f.lower()
+            if f_lower.endswith((".xlsx", ".csv", ".xls")) and f_lower not in excluded_names and not f_lower.startswith("medical_bills"):
+                cand = os.path.join(backend_folder, f)
+                if os.path.exists(cand) and os.path.getsize(cand) > 100:
+                    user_candidates.append((os.path.getmtime(cand), cand))
+        if user_candidates:
+            user_candidates.sort(key=lambda x: x[0], reverse=True)
+            return user_candidates[0][1]
+
+        for pf in ["input_file.xlsx", "upload.csv", "upload.xlsx", "input_file.csv"]:
             cand = os.path.join(backend_folder, pf)
             if os.path.exists(cand) and os.path.getsize(cand) > 100:
                 return cand
-        for f in os.listdir(backend_folder):
-            if f.endswith((".xlsx", ".csv", ".xls")):
-                cand = os.path.join(backend_folder, f)
-                if os.path.exists(cand) and os.path.getsize(cand) > 100:
-                    return cand
 
     fallback = os.path.join(os.path.dirname(__file__), "sample_real_columns.csv")
     if os.path.exists(fallback) and os.path.getsize(fallback) > 100:
         return fallback
     return None
+
 
 CONFIG_FILE = os.path.join(os.path.dirname(__file__), "backend_data", "sync_config.json")
 
@@ -313,7 +326,8 @@ async def ingest_csv(file: UploadFile = File(...)):
             )
 
         contents = await file.read()
-        if fn_lower.endswith((".xlsx", ".xls")):
+        is_excel = fn_lower.endswith((".xlsx", ".xls"))
+        if is_excel:
             df = pd.read_excel(io.BytesIO(contents))
         else:
             df = robust_read_csv(contents)
@@ -328,16 +342,20 @@ async def ingest_csv(file: UploadFile = File(...)):
         with open(save_path, "wb") as f_out:
             f_out.write(contents)
             
-        # Also ensure upload.csv or upload.xlsx exists
-        if fn_lower.endswith((".xlsx", ".xls")):
+        # Also ensure upload and input_file aliases exist
+        if is_excel:
             with open(os.path.join(backend_folder, "upload.xlsx"), "wb") as f_u:
+                f_u.write(contents)
+            with open(os.path.join(backend_folder, "input_file.xlsx"), "wb") as f_u:
                 f_u.write(contents)
         else:
             with open(os.path.join(backend_folder, "upload.csv"), "wb") as f_u:
                 f_u.write(contents)
+            with open(os.path.join(backend_folder, "input_file.csv"), "wb") as f_u:
+                f_u.write(contents)
 
-        # Invalidate master and working cache immediately so uploaded file takes effect
-        global _MASTER_CACHE
+        # Invalidate both master and preview caches immediately so uploaded file takes effect instantly
+        global _MASTER_CACHE, _PREVIEW_CACHE
         _MASTER_CACHE = {
             "target_file": None,
             "mtime": 0,
@@ -346,6 +364,8 @@ async def ingest_csv(file: UploadFile = File(...)):
             "df": None,
             "calc_df": None
         }
+        _PREVIEW_CACHE = {"key": None, "payload_json": None}
+
 
         # Save clean raw file directly to backend_output
         output_folder = os.path.join(os.path.dirname(__file__), "backend_output")
