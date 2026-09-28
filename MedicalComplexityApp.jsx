@@ -2681,6 +2681,9 @@ export function MedicalComplexityApp() {
       }
       return 'Open';
     }
+    if (c.COMPLETION_DATE !== undefined && c.COMPLETION_DATE !== null && String(c.COMPLETION_DATE).trim() !== '' && String(c.COMPLETION_DATE).toLowerCase() !== 'none' && String(c.COMPLETION_DATE).toLowerCase() !== 'nan') {
+      return 'Closed';
+    }
     return 'Open';
   };
 
@@ -2934,9 +2937,11 @@ export function MedicalComplexityApp() {
       );
 
       return rawFilteredClaims.map(c => {
-          const precalcScore = c.CLINICAL_COMPLEXITY_SCORE !== undefined ? c.CLINICAL_COMPLEXITY_SCORE 
-              : (c.overall_complexity_score !== undefined ? c.overall_complexity_score 
-              : (c.COMPLEXITY_SCORE_0_TO_100 !== undefined ? c.COMPLEXITY_SCORE_0_TO_100 : null));
+          const precalcScore = c["Overall Score"] !== undefined && c["Overall Score"] !== null ? parseFloat(c["Overall Score"])
+              : (c.overall_score !== undefined && c.overall_score !== null ? parseFloat(c.overall_score)
+              : (c.CLINICAL_COMPLEXITY_SCORE !== undefined && c.CLINICAL_COMPLEXITY_SCORE !== null ? parseFloat(c.CLINICAL_COMPLEXITY_SCORE)
+              : (c.overall_complexity_score !== undefined && c.overall_complexity_score !== null ? parseFloat(c.overall_complexity_score)
+              : (c.COMPLEXITY_SCORE_0_TO_100 !== undefined && c.COMPLEXITY_SCORE_0_TO_100 !== null ? parseFloat(c.COMPLEXITY_SCORE_0_TO_100) : null))));
 
           const markerScores = {};
           let totalScore = 0;
@@ -2949,7 +2954,7 @@ export function MedicalComplexityApp() {
               totalScore += domainImpactPoints;
           }
           
-          const finalScore = (isDefaultWeights && precalcScore !== null)
+          const finalScore = (!isNaN(precalcScore) && precalcScore !== null && isDefaultWeights && precalcScore > 5)
               ? Math.round(precalcScore)
               : Math.min(100, Math.max(0, Math.round(totalScore)));
           
@@ -6691,11 +6696,16 @@ export function MedicalComplexityApp() {
                                               <Filter className="w-3.5 h-3.5 text-cyan-400" />
                                               <span>Status:</span>
                                           </span>
-                                          {[
-                                              { id: 'ALL', label: `All (${claims.length})` },
-                                              { id: 'OPEN', label: `Open (${claims.filter(c => getClaimStatus(c) === 'Open').length})` },
-                                              { id: 'CLOSED', label: `Closed (${claims.filter(c => getClaimStatus(c) === 'Closed').length})` }
-                                          ].map(st => (
+                                           {(() => {
+                                               const actList = (claims && claims.length > 0) ? claims : (rawRecords && rawRecords.length > 0 ? rawRecords : []);
+                                               const openCount = actList.filter(c => getClaimStatus(c) === 'Open').length;
+                                               const closedCount = actList.filter(c => getClaimStatus(c) === 'Closed').length;
+                                               return [
+                                                   { id: 'ALL', label: `All (${actList.length})` },
+                                                   { id: 'OPEN', label: `Open (${openCount})` },
+                                                   { id: 'CLOSED', label: `Closed (${closedCount})` }
+                                               ];
+                                           })().map(st => (
                                               <button
                                                   key={st.id}
                                                   onClick={(e) => { e.stopPropagation(); setClaimStatusFilter(st.id); }}
