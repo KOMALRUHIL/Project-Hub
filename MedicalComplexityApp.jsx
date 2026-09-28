@@ -2053,6 +2053,7 @@ export function MedicalComplexityApp() {
   
   const [claims, setClaims] = useState([]);
   const [rawRecords, setRawRecords] = useState([]);
+  const hasAnyData = claims.length > 0 || rawRecords.length > 0;
   const [rawMetadata, setRawMetadata] = useState({
       totalRecords: 0,
       totalColumns: 0,
@@ -2316,7 +2317,7 @@ export function MedicalComplexityApp() {
   // Background training on file ingestion
   const [backgroundModelTrained, setBackgroundModelTrained] = useState(false);
   useEffect(() => {
-      if (claims.length > 0) {
+      if (hasAnyData) {
           fetch(`${API_BASE}/api/train-severity-model`, { method: "POST" })
               .then(r => r.json())
               .then(d => { setBackgroundModelTrained(true); })
@@ -2377,7 +2378,7 @@ export function MedicalComplexityApp() {
 
   // Reset seen steps if claims are cleared
   useEffect(() => {
-      if (claims.length === 0) {
+      if (!hasAnyData) {
           setSeenSteps({
               flowchart: false,
               weights: false,
@@ -2390,14 +2391,14 @@ export function MedicalComplexityApp() {
 
   // When user is viewing a step in Clinical Complexity Agent (and file is ingested), mark it as seen
   useEffect(() => {
-      if (activeAgent === 1 && agent1SidebarStep && agent1SidebarStep !== "input" && claims.length > 0) {
+      if (activeAgent === 1 && agent1SidebarStep && agent1SidebarStep !== "input" && hasAnyData) {
           setSeenSteps(prev => ({ ...prev, [agent1SidebarStep]: true }));
       }
   }, [activeAgent, agent1SidebarStep, claims.length]);
 
   // When user is viewing a step in Loss Severity Reasoner, mark it as seen
   useEffect(() => {
-      if (activeAgent === 2 && agent2SubStep && claims.length > 0) {
+      if (activeAgent === 2 && agent2SubStep && hasAnyData) {
           setAgent2SeenSteps(prev => ({ ...prev, [agent2SubStep]: true }));
       }
   }, [activeAgent, agent2SubStep, claims.length]);
@@ -2411,7 +2412,7 @@ export function MedicalComplexityApp() {
               const prevData = await prevRes.json();
               if (prevData.records && prevData.records.length > 0) {
                   setRawRecords(prevData.records);
-                  setClaims(prev => (prev && prev.length > 0) ? prev : prevData.records);
+
                   setUploadedFileName(prevData.source_file || "upload.csv");
                   
                   const cols = prevData.columns || Object.keys(prevData.records[0] || {});
@@ -2450,8 +2451,7 @@ export function MedicalComplexityApp() {
               const masterData = await masterRes.json();
               if (masterData.records && masterData.records.length > 0) {
                   setClaims(masterData.records);
-                  // If preview was empty, fallback to master data
-                  setRawRecords(prev => (prev && prev.length > 0) ? prev : masterData.records);
+
               }
           }
       } catch (e) {
@@ -2534,7 +2534,7 @@ export function MedicalComplexityApp() {
             }
         } catch (err) {
             console.warn("Backend API sync notice, fallback to benchmark dataset:", err);
-            if (claims.length === 0) {
+            if (!hasAnyData) {
                 const benchmark = generateBenchmarkDataset();
                 setClaims(benchmark);
                 setRawRecords(benchmark);
@@ -2601,7 +2601,7 @@ export function MedicalComplexityApp() {
         }, 7500);
     };
 
-    const isIngestionDone = claims.length > 0;
+    const isIngestionDone = hasAnyData;
 
 
 
@@ -2610,7 +2610,7 @@ export function MedicalComplexityApp() {
   const [activeDomainIndex, setActiveDomainIndex] = useState(0);
   const [revealedCounts, setRevealedCounts] = useState([1, 0, 0, 0, 0, 0, 0, 0]);
   const [isLivePlaying, setIsLivePlaying] = useState(false);
-  const [showAllNodes, setShowAllNodes] = useState(false);
+  const [showAllNodes, setShowAllNodes] = useState(true);
   const [animationSpeed, setAnimationSpeed] = useState(450);
 
   // TAB 5 CLINICAL LINEAGE TREE STATE (VIEW MODE: 'job' | 'cohort')
@@ -2663,7 +2663,17 @@ export function MedicalComplexityApp() {
 
   const getClaimStatus = (c) => {
     if (!c) return 'Open';
-    const val = c.claim_status !== undefined ? c.claim_status : (c.status !== undefined ? c.status : (c.open_closed || c.claim_state || c.case_status || c.file_status || c.is_open));
+    let val = undefined;
+    for (const key of Object.keys(c)) {
+      const kLow = key.toLowerCase().replace(/[-_]/g, '');
+      if (kLow === 'status' || kLow === 'claimstatus' || kLow === 'openclosed' || kLow === 'claimstate' || kLow === 'casestatus' || kLow === 'filestatus' || kLow === 'isopen') {
+        val = c[key];
+        break;
+      }
+    }
+    if (val === undefined) {
+      val = c.claim_status !== undefined ? c.claim_status : (c.status !== undefined ? c.status : (c.Status || c.STATUS || c.open_closed || c.claim_state || c.case_status || c.file_status || c.is_open));
+    }
     if (val !== undefined && val !== null && val !== '') {
       const s = String(val).toLowerCase().trim();
       if (s.includes('close') || s.includes('settle') || s.includes('resolved') || s === '0' || s === 'false' || s === 'c') {
@@ -2674,12 +2684,17 @@ export function MedicalComplexityApp() {
     return 'Open';
   };
 
+  const activeDataset = useMemo(() => {
+    return (claims && claims.length > 0) ? claims : ((rawRecords && rawRecords.length > 0) ? rawRecords : []);
+  }, [claims, rawRecords]);
+
   const hasStatusColumn = useMemo(() => {
-    if (!claims || !claims.length) return false;
-    const first = claims[0];
+    if (!activeDataset || !activeDataset.length) return false;
+    const first = activeDataset[0];
+    if (!first) return false;
     const keys = Object.keys(first).map(k => k.toLowerCase().replace(/[-_]/g, ''));
     return keys.some(k => k.includes('status') || k.includes('openclose') || k.includes('claimstate'));
-  }, [claims]);
+  }, [activeDataset]);
   const [searchQuery, setSearchQuery] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
   
@@ -2906,18 +2921,19 @@ export function MedicalComplexityApp() {
 
   // PURE WEIGHTED SUM: Total Complexity Score = Sum(Domain Score 0-100 * Weight) DIRECTLY FROM DOMAINS
   const calculatedClaims = useMemo(() => {
-      if (claims.length === 0) return [];
+      const activeClaimsList = (claims && claims.length > 0) ? claims : ((rawRecords && rawRecords.length > 0) ? rawRecords : []);
+      if (activeClaimsList.length === 0) return [];
 
-      let rawFilteredClaims = claims;
+      let rawFilteredClaims = activeClaimsList;
       if (claimStatusFilter !== "ALL") {
-          rawFilteredClaims = claims.filter(c => getClaimStatus(c).toUpperCase() === claimStatusFilter);
+          rawFilteredClaims = activeClaimsList.filter(c => getClaimStatus(c).toUpperCase() === claimStatusFilter);
       }
 
       const isDefaultWeights = Object.keys(defaultScoringWeights).every(
           k => weights[k] === undefined || Math.abs(weights[k] - defaultScoringWeights[k]) < 0.0001
       );
 
-      return claims.map(c => {
+      return rawFilteredClaims.map(c => {
           const precalcScore = c.CLINICAL_COMPLEXITY_SCORE !== undefined ? c.CLINICAL_COMPLEXITY_SCORE 
               : (c.overall_complexity_score !== undefined ? c.overall_complexity_score 
               : (c.COMPLEXITY_SCORE_0_TO_100 !== undefined ? c.COMPLEXITY_SCORE_0_TO_100 : null));
@@ -2945,7 +2961,7 @@ export function MedicalComplexityApp() {
               calculatedComplexity: finalScore
           };
       });
-  }, [claims, weights, claimStatusFilter]);
+  }, [claims, rawRecords, weights, claimStatusFilter]);
 
   // COHORT STATISTICAL INTELLIGENCE & TIERS (100% DATA-DRIVEN STATISTICAL PARTITIONING)
   const cohortIntelligence = useMemo(() => {
@@ -4601,11 +4617,11 @@ export function MedicalComplexityApp() {
       setTimeout(() => {
           setIsExtractingFeatures(false);
           setAgent1SidebarStep("flowchart");
-          setShowAllNodes(false);
+          setShowAllNodes(true);
           setActiveDomainIndex(0);
-          setRevealedCounts([1, 0, 0, 0, 0, 0, 0, 0]);
-          setIsLivePlaying(true);
-      }, 5200);
+          setRevealedCounts([5, 5, 5, 5, 5, 5, 5, 5]);
+          setIsLivePlaying(false);
+      }, 1500);
   };
 
   const categorizeColumnClient = (colName) => {
@@ -4746,7 +4762,7 @@ export function MedicalComplexityApp() {
   // TAB 6: NEURAL MULTI-DRIVER CONVERGENT GRAPH LOGIC
   // =========================================================================
   const highRiskClaimsList = useMemo(() => {
-      return cohortIntelligence.high.claims.length > 0 
+      return (cohortIntelligence.high && cohortIntelligence.high.claims && cohortIntelligence.high.claims.length > 0)
           ? cohortIntelligence.high.claims 
           : calculatedClaims.slice(0, 10);
   }, [cohortIntelligence, calculatedClaims]);
@@ -5200,13 +5216,13 @@ export function MedicalComplexityApp() {
           "Synchronizing live feed with Power BI & SharePoint destination..."
       ]);
 
-      // Automatically sync and persist newly calculated data to disk & SharePoint
-      await triggerExportAndSync();
+      // Non-blocking async background sync
+      triggerExportAndSync().catch(err => console.log("Export notice:", err));
 
       setTimeout(() => {
           setIsCalculatingWeights(false);
           setAgent1SidebarStep("scores");
-      }, 700);
+      }, 400);
   };
 
   const handleLaunchStudio = () => {
@@ -5217,7 +5233,7 @@ export function MedicalComplexityApp() {
       handleRunPipelineVideo(true);
   };
 
-  const isAgent1Done = claims.length > 0;
+  const isAgent1Done = hasAnyData;
   const isAgent2Ready = isAgent1Done;
   const isAgent3Ready = isAgent1Done;
 
@@ -5456,9 +5472,7 @@ export function MedicalComplexityApp() {
 
                   <div className="flex items-center space-x-3 text-xs font-mono">
                       <span className="text-[11px] text-slate-300 font-semibold">
-                          {claims.length > 0 
-                              ? `${claims.length} Records Loaded` 
-                              : (rawRecords.length > 0 ? `${rawRecords.length} Records Loaded` : "No File Ingested")}
+                          {((claims && claims.length > 0) ? claims.length : ((rawRecords && rawRecords.length > 0) ? rawRecords.length : 0)).toLocaleString()} Records Loaded
                           {uploadedFileName ? ` • ${uploadedFileName}` : ""}
                       </span>
                       {selectedClaimId && (
@@ -5481,7 +5495,7 @@ export function MedicalComplexityApp() {
                       <div 
                           onClick={() => setActiveAgent(1)}
                           className={`col-span-6 rounded-xl p-2.5 transition-all duration-300 relative cursor-pointer ${
-                              claims.length === 0
+                              !hasAnyData
                                   ? "bg-transparent border-2 border-dashed border-slate-750"
                                   : (activeAgent === 1 
                                       ? "bg-[#09152C] border-2 border-solid border-[#00D2FF] shadow-lg shadow-[#0066FF]/20 ring-1 ring-[#00D2FF]/40"
@@ -5495,7 +5509,7 @@ export function MedicalComplexityApp() {
                               <div 
                                   onClick={(e) => { e.stopPropagation(); setActiveAgent(1); setAgent1SidebarStep("input"); }}
                                   className={`flex-1 rounded-lg py-1.5 px-1 text-center transition-all flex flex-col justify-center items-center cursor-pointer ${
-                                      claims.length > 0 
+                                      hasAnyData 
                                           ? (agent1SidebarStep === "input" && activeAgent === 1
                                               ? "bg-[#0066FF] border-2 border-solid border-[#00D2FF] text-white shadow-md"
                                               : "bg-slate-900 border-2 border-solid border-emerald-500 text-white shadow-sm")
@@ -5505,16 +5519,16 @@ export function MedicalComplexityApp() {
                                   }`}
                               >
                                   <span className="text-[9px] sm:text-[10px] font-bold leading-tight">Data Ingestion</span>
-                                  {claims.length > 0 && <span className="text-[8px] text-emerald-400 font-mono font-bold mt-0.5">✓</span>}
+                                  {hasAnyData && <span className="text-[8px] text-emerald-400 font-mono font-bold mt-0.5">✓</span>}
                               </div>
 
-                              <span className={`text-[10px] font-bold transition-all ${claims.length > 0 ? "text-emerald-400 font-bold" : "text-slate-700"}`}>➔</span>
+                              <span className={`text-[10px] font-bold transition-all ${hasAnyData ? "text-emerald-400 font-bold" : "text-slate-700"}`}>➔</span>
 
                               {/* Clinical Tree */}
                               <div 
-                                  onClick={(e) => { if (claims.length > 0) { e.stopPropagation(); setActiveAgent(1); setAgent1SidebarStep("flowchart"); setShowAllNodes(false); setActiveDomainIndex(0); setRevealedCounts([1, 0, 0, 0, 0, 0, 0, 0]); setIsLivePlaying(true); } }}
+                                  onClick={(e) => { if (hasAnyData) { e.stopPropagation(); setActiveAgent(1); setAgent1SidebarStep("flowchart"); setShowAllNodes(false); setActiveDomainIndex(0); setRevealedCounts([1, 0, 0, 0, 0, 0, 0, 0]); setIsLivePlaying(true); } }}
                                   className={`flex-1 rounded-lg py-1.5 px-1 text-center transition-all flex flex-col justify-center items-center ${
-                                      claims.length === 0 
+                                      !hasAnyData 
                                           ? "bg-transparent border-2 border-dashed border-slate-800 text-slate-600 opacity-40 cursor-not-allowed"
                                           : (agent1SidebarStep === "flowchart" && activeAgent === 1
                                               ? "bg-[#0066FF] border-2 border-solid border-[#00D2FF] text-white shadow-md scale-[1.02] cursor-pointer"
@@ -5531,9 +5545,9 @@ export function MedicalComplexityApp() {
 
                               {/* Weights Matrix */}
                               <div 
-                                  onClick={(e) => { if (claims.length > 0) { e.stopPropagation(); setIsLivePlaying(false); setActiveAgent(1); setAgent1SidebarStep("weights"); } }}
+                                  onClick={(e) => { if (hasAnyData) { e.stopPropagation(); setIsLivePlaying(false); setActiveAgent(1); setAgent1SidebarStep("weights"); } }}
                                   className={`flex-1 rounded-lg py-1.5 px-1 text-center transition-all flex flex-col justify-center items-center ${
-                                      claims.length === 0 
+                                      !hasAnyData 
                                           ? "bg-transparent border-2 border-dashed border-slate-800 text-slate-600 opacity-40 cursor-not-allowed"
                                           : (agent1SidebarStep === "weights" && activeAgent === 1
                                               ? "bg-[#0066FF] border-2 border-solid border-[#00D2FF] text-white shadow-md scale-[1.02] cursor-pointer"
@@ -5550,9 +5564,9 @@ export function MedicalComplexityApp() {
 
                               {/* Funnel & Cohorts */}
                               <div 
-                                  onClick={(e) => { if (claims.length > 0) { e.stopPropagation(); setIsLivePlaying(false); setActiveAgent(1); setAgent1SidebarStep("scores"); } }}
+                                  onClick={(e) => { if (hasAnyData) { e.stopPropagation(); setIsLivePlaying(false); setActiveAgent(1); setAgent1SidebarStep("scores"); } }}
                                   className={`flex-1 rounded-lg py-1.5 px-1 text-center transition-all flex flex-col justify-center items-center ${
-                                      claims.length === 0 
+                                      !hasAnyData 
                                           ? "bg-transparent border-2 border-dashed border-slate-800 text-slate-600 opacity-40 cursor-not-allowed"
                                           : (agent1SidebarStep === "scores" && activeAgent === 1
                                               ? "bg-[#0066FF] border-2 border-solid border-[#00D2FF] text-white shadow-md scale-[1.02] cursor-pointer"
@@ -5569,9 +5583,9 @@ export function MedicalComplexityApp() {
 
                               {/* Lineage Tree */}
                               <div 
-                                  onClick={(e) => { if (claims.length > 0) { e.stopPropagation(); setIsLivePlaying(false); setActiveAgent(1); setAgent1SidebarStep("tree"); } }}
+                                  onClick={(e) => { if (hasAnyData) { e.stopPropagation(); setIsLivePlaying(false); setActiveAgent(1); setAgent1SidebarStep("tree"); } }}
                                   className={`flex-1 rounded-lg py-1.5 px-1 text-center transition-all flex flex-col justify-center items-center ${
-                                      claims.length === 0 
+                                      !hasAnyData 
                                           ? "bg-transparent border-2 border-dashed border-slate-800 text-slate-600 opacity-40 cursor-not-allowed"
                                           : (agent1SidebarStep === "tree" && activeAgent === 1
                                               ? "bg-[#0066FF] border-2 border-solid border-[#00D2FF] text-white shadow-md scale-[1.02] cursor-pointer"
@@ -5588,9 +5602,9 @@ export function MedicalComplexityApp() {
 
                               {/* Neural Graph */}
                               <div 
-                                  onClick={(e) => { if (claims.length > 0) { e.stopPropagation(); setIsLivePlaying(false); setActiveAgent(1); setAgent1SidebarStep("neural"); } }}
+                                  onClick={(e) => { if (hasAnyData) { e.stopPropagation(); setIsLivePlaying(false); setActiveAgent(1); setAgent1SidebarStep("neural"); } }}
                                   className={`flex-1 rounded-lg py-1.5 px-1 text-center transition-all flex flex-col justify-center items-center ${
-                                      claims.length === 0 
+                                      !hasAnyData 
                                           ? "bg-transparent border-2 border-dashed border-slate-800 text-slate-600 opacity-40 cursor-not-allowed"
                                           : (agent1SidebarStep === "neural" && activeAgent === 1
                                               ? "bg-[#0066FF] border-2 border-solid border-[#00D2FF] text-white shadow-md scale-[1.02] cursor-pointer"
@@ -5618,7 +5632,7 @@ export function MedicalComplexityApp() {
                       {/* ------------------------------------------------------------- */}
                       <div className="col-span-1 flex items-center justify-center text-center">
                           <div className={`text-base font-bold transition-all ${
-                              claims.length > 0 
+                              hasAnyData 
                                   ? "text-emerald-400 animate-pulse" 
                                   : "text-slate-700"
                           }`}>
@@ -5630,9 +5644,9 @@ export function MedicalComplexityApp() {
                       {/* AGENT 2 CONTAINER (BOX 2: LOSS SEVERITY & DEMAND REASONER) */}
                       {/* ------------------------------------------------------------- */}
                       <div 
-                          onClick={() => { if (claims.length > 0) setActiveAgent(2); }}
+                          onClick={() => { if (hasAnyData) setActiveAgent(2); }}
                           className={`col-span-5 rounded-xl p-2.5 transition-all duration-300 relative ${
-                              claims.length === 0 
+                              !hasAnyData 
                                   ? "bg-transparent border-2 border-dashed border-slate-800 opacity-40 cursor-not-allowed"
                                   : (activeAgent === 2 
                                       ? "bg-[#180E20] border-2 border-solid border-[#00D2FF] shadow-lg shadow-[#00D2FF]/20 ring-1 ring-[#00D2FF]/40 cursor-pointer"
@@ -5644,9 +5658,9 @@ export function MedicalComplexityApp() {
                               
                               {/* 1. Feature & Demand Preview */}
                               <div 
-                                  onClick={(e) => { if (claims.length > 0) { e.stopPropagation(); setActiveAgent(2); setAgent2SubStep("features"); } }}
+                                  onClick={(e) => { if (hasAnyData) { e.stopPropagation(); setActiveAgent(2); setAgent2SubStep("features"); } }}
                                   className={`flex-1 rounded-lg py-1.5 px-1 text-center transition-all flex flex-col justify-center items-center ${
-                                      claims.length === 0 
+                                      !hasAnyData 
                                           ? "bg-transparent border-2 border-dashed border-slate-800 text-slate-600"
                                           : (activeAgent === 2 && agent2SubStep === "features"
                                               ? "bg-[#00D2FF] border-2 border-solid border-[#00D2FF] text-slate-950 font-black shadow-md cursor-pointer"
@@ -5663,9 +5677,9 @@ export function MedicalComplexityApp() {
 
                               {/* 2. Model Training */}
                               <div 
-                                  onClick={(e) => { if (claims.length > 0) { e.stopPropagation(); setActiveAgent(2); setAgent2SubStep("training"); } }}
+                                  onClick={(e) => { if (hasAnyData) { e.stopPropagation(); setActiveAgent(2); setAgent2SubStep("training"); } }}
                                   className={`flex-1 rounded-lg py-1.5 px-1 text-center transition-all flex flex-col justify-center items-center ${
-                                      claims.length === 0 
+                                      !hasAnyData 
                                           ? "bg-transparent border-2 border-dashed border-slate-800 text-slate-600"
                                           : (activeAgent === 2 && agent2SubStep === "training"
                                               ? "bg-[#00D2FF] border-2 border-solid border-[#00D2FF] text-slate-950 font-black shadow-md cursor-pointer animate-pulse"
@@ -5682,9 +5696,9 @@ export function MedicalComplexityApp() {
 
                               {/* 3. Severity Funnel */}
                               <div 
-                                  onClick={(e) => { if (claims.length > 0) { e.stopPropagation(); setActiveAgent(2); setAgent2SubStep("funnel"); } }}
+                                  onClick={(e) => { if (hasAnyData) { e.stopPropagation(); setActiveAgent(2); setAgent2SubStep("funnel"); } }}
                                   className={`flex-1 rounded-lg py-1.5 px-1 text-center transition-all flex flex-col justify-center items-center ${
-                                      claims.length === 0 
+                                      !hasAnyData 
                                           ? "bg-transparent border-2 border-dashed border-slate-800 text-slate-600"
                                           : (activeAgent === 2 && agent2SubStep === "funnel"
                                               ? "bg-[#00D2FF] border-2 border-solid border-[#00D2FF] text-slate-950 font-black shadow-md cursor-pointer"
@@ -5701,9 +5715,9 @@ export function MedicalComplexityApp() {
 
                               {/* 4. Lineage Tree */}
                               <div 
-                                  onClick={(e) => { if (claims.length > 0) { e.stopPropagation(); setActiveAgent(2); setAgent2SubStep("tree"); } }}
+                                  onClick={(e) => { if (hasAnyData) { e.stopPropagation(); setActiveAgent(2); setAgent2SubStep("tree"); } }}
                                   className={`flex-1 rounded-lg py-1.5 px-1 text-center transition-all flex flex-col justify-center items-center ${
-                                      claims.length === 0 
+                                      !hasAnyData 
                                           ? "bg-transparent border-2 border-dashed border-slate-800 text-slate-600"
                                           : (activeAgent === 2 && agent2SubStep === "tree"
                                               ? "bg-[#00D2FF] border-2 border-solid border-[#00D2FF] text-slate-950 font-black shadow-md cursor-pointer"
@@ -5720,9 +5734,9 @@ export function MedicalComplexityApp() {
 
                               {/* 5. Worst Risk Cohorts Comparison */}
                               <div 
-                                  onClick={(e) => { if (claims.length > 0) { e.stopPropagation(); setActiveAgent(2); setAgent2SubStep("comparison"); } }}
+                                  onClick={(e) => { if (hasAnyData) { e.stopPropagation(); setActiveAgent(2); setAgent2SubStep("comparison"); } }}
                                   className={`flex-1 rounded-lg py-1.5 px-1 text-center transition-all flex flex-col justify-center items-center ${
-                                      claims.length === 0 
+                                      !hasAnyData 
                                           ? "bg-transparent border-2 border-dashed border-slate-800 text-slate-600"
                                           : (activeAgent === 2 && agent2SubStep === "comparison"
                                               ? "bg-[#00D2FF] border-2 border-solid border-[#00D2FF] text-slate-950 font-black shadow-md cursor-pointer"
@@ -5739,9 +5753,9 @@ export function MedicalComplexityApp() {
 
                               {/* 6. Medical Claim Summary */}
                               <div 
-                                  onClick={(e) => { if (claims.length > 0) { e.stopPropagation(); setActiveAgent(2); setAgent2SubStep("summary"); } }}
+                                  onClick={(e) => { if (hasAnyData) { e.stopPropagation(); setActiveAgent(2); setAgent2SubStep("summary"); } }}
                                   className={`flex-1 rounded-lg py-1.5 px-1 text-center transition-all flex flex-col justify-center items-center ${
-                                      claims.length === 0 
+                                      !hasAnyData 
                                           ? "bg-transparent border-2 border-dashed border-slate-800 text-slate-600"
                                           : (activeAgent === 2 && agent2SubStep === "summary"
                                               ? "bg-gradient-to-r from-blue-600 to-indigo-600 border-2 border-solid border-blue-400 text-white font-black shadow-lg cursor-pointer"
@@ -5804,7 +5818,7 @@ export function MedicalComplexityApp() {
                   {/* ========================================================================= */}
                   {activeAgent === 1 && agent1SidebarStep === "input" && (() => {
                       // Filter records for data preview
-                      const filteredPreviewClaims = (claims.length > 0 ? claims : generateBenchmarkDataset()).filter(c => {
+                      const filteredPreviewClaims = ((claims && claims.length > 0) ? claims : ((rawRecords && rawRecords.length > 0) ? rawRecords : generateBenchmarkDataset())).filter(c => {
                           if (!previewSearchTerm) return true;
                           const term = previewSearchTerm.toLowerCase();
                           return (
@@ -6851,16 +6865,21 @@ export function MedicalComplexityApp() {
                               <span className="text-xs text-slate-400 font-heading">
                                   Recalculate complexity index across all claims and synchronize master data file.
                               </span>
-                              <div className="flex items-center space-x-2">
-                                  <button 
-                                      onClick={handleRecalculateWeights}
-                                      disabled={isNot100Percent}
-                                      className="px-6 py-2 bg-gradient-to-r from-[#0066FF] to-[#00D2FF] hover:from-[#FF6B35] hover:to-[#FF5B35] disabled:opacity-30 disabled:pointer-events-none text-slate-950 font-bold text-xs rounded-xl transition shadow-lg shadow-[#FF5B35]/20 flex items-center space-x-2 font-heading cursor-pointer"
-                                  >
-                                      <span>Compute Complexity Index & Sync</span>
-                                      
-                                  </button>
-                              </div>
+                               <div className="flex items-center space-x-2.5">
+                                   <button 
+                                       onClick={handleRecalculateWeights}
+                                       disabled={isNot100Percent}
+                                       className="px-5 py-2 bg-slate-800 hover:bg-slate-700 disabled:opacity-30 disabled:pointer-events-none text-cyan-300 font-bold text-xs rounded-xl transition border border-cyan-500/40 flex items-center space-x-2 font-heading cursor-pointer"
+                                   >
+                                       <span>Compute Complexity Index & Sync</span>
+                                   </button>
+                                   <button 
+                                       onClick={() => setAgent1SidebarStep("scores")}
+                                       className="px-6 py-2 bg-gradient-to-r from-[#FF5B35] to-[#FF7A00] hover:from-[#FF6B45] hover:to-[#FF5B35] text-white font-black text-xs sm:text-sm rounded-xl transition shadow-lg shadow-[#FF5B35]/30 flex items-center space-x-2 font-heading cursor-pointer hover:scale-[1.02]"
+                                   >
+                                       <span>Proceed to Funnel & Cohorts ➔</span>
+                                   </button>
+                               </div>
                           </div>
 
                           {/* FORMULA MODAL OVERLAY */}
@@ -7715,7 +7734,7 @@ export function MedicalComplexityApp() {
                                       </div>
                                       <div className="mt-1">
                                           <span className="text-2xl sm:text-3xl font-black text-white font-mono">
-                                              {claims.length > 0 ? Object.keys(claims[0]).length : (rawMetadata.totalColumns || 211)}
+                                              {hasAnyData ? ((claims && claims.length > 0) ? Object.keys(claims[0]).length : (rawRecords && rawRecords.length > 0 ? Object.keys(rawRecords[0]).length : (rawMetadata.totalColumns || 211))) : (rawMetadata.totalColumns || 211)}
                                           </span>
                                           <span className="text-xs text-white block font-mono font-medium mt-1">Features Mapped</span>
                                       </div>
@@ -7730,8 +7749,8 @@ export function MedicalComplexityApp() {
                                       <div className="mt-1">
                                           <span className="text-2xl sm:text-3xl font-black text-white font-mono">
                                               {(() => {
-                                                  if (claims.length > 0) {
-                                                      const keys = Object.keys(claims[0]);
+                                                  if (hasAnyData) {
+                                                      const sample = (claims && claims.length > 0) ? claims[0] : ((rawRecords && rawRecords.length > 0) ? rawRecords[0] : null); const keys = sample ? Object.keys(sample) : [];
                                                       const cnt = keys.filter(k => {
                                                           const s = k.toLowerCase();
                                                           return s.includes("burden") || s.includes("diag") || s.includes("surg") || s.includes("med") || s.includes("icd") || s.includes("hosp") || s.includes("er_") || s.includes("opioid") || s.includes("chronic") || s.includes("provider") || s.includes("facility") || s.includes("treatment") || s.includes("clinical");
@@ -7756,8 +7775,8 @@ export function MedicalComplexityApp() {
                                       <div className="mt-1">
                                           <span className="text-2xl sm:text-3xl font-black text-white font-mono">
                                               {(() => {
-                                                  if (claims.length > 0) {
-                                                      const keys = Object.keys(claims[0]);
+                                                  if (hasAnyData) {
+                                                      const sample = (claims && claims.length > 0) ? claims[0] : ((rawRecords && rawRecords.length > 0) ? rawRecords[0] : null); const keys = sample ? Object.keys(sample) : [];
                                                       const cnt = keys.filter(k => {
                                                           const s = k.toLowerCase();
                                                           return s.includes("bill") || s.includes("amount") || s.includes("paid") || s.includes("demand") || s.includes("cost") || s.includes("financial") || s.includes("expense") || s.includes("incurred");
