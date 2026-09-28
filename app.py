@@ -75,6 +75,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+from fastapi.middleware.gzip import GZipMiddleware
+app.add_middleware(GZipMiddleware, minimum_size=1000)
+
 def get_dist_dir() -> Optional[str]:
     """Locate the built React Vite dist directory."""
     candidates = [
@@ -114,6 +117,18 @@ def root_endpoint():
 @app.get("/api/health")
 def health_check():
     return {"status": "healthy", "service": "ClaimOptima-Backend", "timestamp": datetime.datetime.now().isoformat()}
+
+@app.on_event("startup")
+def prewarm_dataset_caches():
+    def _run():
+        try:
+            print("[ClaimOptima] Prewarming datasets in memory...")
+            get_master_backend_data()
+            get_preview_data()
+            print("[ClaimOptima] Dataset caches prewarmed successfully!")
+        except Exception as e:
+            print("[ClaimOptima] Prewarm note:", e)
+    threading.Thread(target=_run, daemon=True).start()
 
 
 CLINICAL_KEYWORDS = [
@@ -1163,11 +1178,10 @@ RAW_65_COLUMNS = [
 ]
 
 @app.get("/api/preview-data")
-def get_preview_data(limit: int = 200):
+def get_preview_data(limit: Optional[int] = None):
     """
     Dynamically loads the raw upload dataset (upload.csv, upload.xlsx, etc.)
-    for the raw Ingestion Preview table in Agent 1. Returns whatever columns the file contains,
-    with a preview slice of up to `limit` records to ensure lightning-fast responses on Azure.
+    for the raw Ingestion Preview table in Agent 1. Returns all records (or preview slice if limit specified).
     """
     global _PREVIEW_CACHE
     target_file = get_preview_target_file()
@@ -1188,21 +1202,6 @@ def get_preview_data(limit: int = 200):
         df_clean = sanitize_df_for_json(df_preview)
         records = df_clean.to_dict(orient="records")
         
-        try:
-            bills_map = load_all_medical_bills_map()
-            if bills_map:
-                for rec in records:
-                    jid = str(rec.get("JOB_ID", rec.get("job_id", ""))).strip()
-                    norm_num = ''.join(filter(str.isdigit, jid))
-                    if jid in bills_map:
-                        rec["bill_rows"] = bills_map[jid]
-                    elif f"CLM-{norm_num}" in bills_map:
-                        rec["bill_rows"] = bills_map[f"CLM-{norm_num}"]
-                    elif norm_num in bills_map:
-                        rec["bill_rows"] = bills_map[norm_num]
-        except Exception as b_err:
-            print("Preview bills map notice:", b_err)
-            
         payload = {
             "status": "success",
             "source_file": os.path.basename(target_file),
