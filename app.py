@@ -192,6 +192,72 @@ def robust_read_csv(contents: bytes) -> pd.DataFrame:
     raise Exception(f"Failed to parse CSV with supported encodings. Last error: {last_err}")
 
 
+def get_medical_bills_file() -> Optional[str]:
+    """Finds the dedicated record-wise medical bills dataset (medical_bills_input.xlsx)."""
+    candidates = [
+        os.path.join(os.path.dirname(__file__), "backend_data", "medical_bills_input.xlsx"),
+        os.path.join(os.path.dirname(__file__), "medical_bills_input.xlsx"),
+        os.path.join(os.path.dirname(__file__), "backend_data", "sample_bills_data.xlsx"),
+        os.path.join(os.path.dirname(__file__), "sample_bills_data.xlsx"),
+    ]
+    for c in candidates:
+        if os.path.exists(c) and os.path.getsize(c) > 100:
+            return c
+    return None
+
+def load_all_medical_bills_map() -> Dict[str, List[Dict[str, Any]]]:
+    """Loads record-wise bill line items from medical_bills_input.xlsx grouped by JOB_ID / job_id with robust cross-matching."""
+    bills_file = get_medical_bills_file()
+    if not bills_file:
+        return {}
+    try:
+        if bills_file.endswith((".xlsx", ".xls")):
+            b_df = pd.read_excel(bills_file)
+        else:
+            b_df = pd.read_csv(bills_file)
+        
+        # Normalize column names
+        cols_lower = {c: str(c).strip().lower().replace(' ', '_').replace('-', '_') for c in b_df.columns}
+        b_df = b_df.rename(columns=cols_lower)
+        
+        job_col = next((c for c in ['job_id', 'claim_id', 'jobid', 'claimid'] if c in b_df.columns), None)
+        if not job_col:
+            return {}
+            
+        grouped = {}
+        for row in b_df.to_dict(orient="records"):
+            raw_jid = str(row.get(job_col, '')).strip()
+            if not raw_jid:
+                continue
+            if raw_jid not in grouped:
+                grouped[raw_jid] = []
+            grouped[raw_jid].append(row)
+            
+        bills_map = {}
+        for raw_jid, rows in grouped.items():
+            norm_num = ''.join(filter(str.isdigit, raw_jid))
+            keys = [
+                raw_jid,
+                raw_jid.upper(),
+                raw_jid.lower(),
+                raw_jid.replace('CLM', 'JOB'),
+                raw_jid.replace('JOB', 'CLM'),
+                raw_jid.replace('_', '-'),
+                raw_jid.replace('-', '_'),
+                norm_num,
+                f"JOB-{norm_num}" if norm_num else "",
+                f"CLM-{norm_num}" if norm_num else "",
+                f"JOB_{norm_num}" if norm_num else "",
+                f"CLM_{norm_num}" if norm_num else ""
+            ]
+            for k in set(keys):
+                if k and k not in bills_map:
+                    bills_map[k] = rows
+        return bills_map
+    except Exception as e:
+        print("Note loading medical bills map:", e)
+        return {}
+
 def get_active_input_file() -> Optional[str]:
     """
     Safely finds the active dataset file, ensuring it exists and is NOT an empty 0-byte file.
@@ -945,15 +1011,24 @@ def get_working_dataset():
         return Response(content=_MASTER_CACHE["working_payload_json"], media_type="application/json")
     raise HTTPException(status_code=404, detail="Working dataset not found.")
 
+_PREVIEW_CACHE = {"key": None, "payload_json": None}
+
 @app.get("/api/preview-data")
-def get_preview_data():
+def get_preview_data(limit: int = 200):
     """
     Specifically loads the active dataset (upload.csv, input_file.xlsx, or sample fallback)
-    for the raw Ingestion Preview table in Agent 1.
+    for the raw Ingestion Preview table in Agent 1. Returns preview slice of up to `limit` records
+    with full metadata to ensure lightning-fast responses on Azure App Services.
     """
+    global _PREVIEW_CACHE
     target_file = get_active_input_file()
     if not target_file:
         raise HTTPException(status_code=404, detail="No valid preview file found. Please upload a dataset in Data Ingestion.")
+        
+    mtime = os.path.getmtime(target_file) if os.path.exists(target_file) else 0
+    cache_key = f"{target_file}_{mtime}_{limit}"
+    if _PREVIEW_CACHE.get("key") == cache_key and _PREVIEW_CACHE.get("payload_json"):
+        return Response(content=_PREVIEW_CACHE["payload_json"], media_type="application/json")
         
     try:
         if target_file.endswith((".xlsx", ".xls")):
@@ -961,18 +1036,46 @@ def get_preview_data():
         else:
             with open(target_file, "rb") as f:
                 df = robust_read_csv(f.read())
-        df_clean = sanitize_df_for_json(df)
+            
+        total_count = len(df)
+        df_preview = df.head(limit) if limit and limit > 0 and limit < len(df) else df
+        df_clean = sanitize_df_for_json(df_preview)
         records = df_clean.to_dict(orient="records")
+        
+        try:
+            bills_map = load_all_medical_bills_map()
+            if bills_map:
+                for rec in records:
+                    jid = str(rec.get("JOB_ID", rec.get("job_id", ""))).strip()
+                    norm_num = ''.join(filter(str.isdigit, jid))
+                    if jid in bills_map:
+                        rec["bill_rows"] = bills_map[jid]
+                    elif f"CLM-{norm_num}" in bills_map:
+                        rec["bill_rows"] = bills_map[f"CLM-{norm_num}"]
+                    elif norm_num in bills_map:
+                        rec["bill_rows"] = bills_map[norm_num]
+        except Exception as b_err:
+            print("Preview bills map notice:", b_err)
+            
         payload = {
             "status": "success",
             "source_file": os.path.basename(target_file),
-            "total_records": len(records),
+            "total_records": total_count,
+            "preview_records_count": len(records),
             "columns": list(df.columns),
             "records": records
         }
-        return Response(content=safe_json_dumps(payload), media_type="application/json")
+        payload_json = safe_json_dumps(payload)
+        
+        _PREVIEW_CACHE["key"] = cache_key
+        _PREVIEW_CACHE["payload_json"] = payload_json
+        
+        return Response(content=payload_json, media_type="application/json")
     except Exception as e:
+        print("Error in get_preview_data:", e)
         raise HTTPException(status_code=500, detail=f"Failed to read preview file: {str(e)}")
+
+
 
 
 @app.get("/api/master-data")
@@ -1008,10 +1111,29 @@ def get_master_backend_data():
         
         # Save two-tab workbook strictly into backend_output/ (zero backend_data pollution)
         calc_df = create_and_save_working_dataset(df, raw_df=raw_df)
+        shap_df = derive_loss_severity_and_shap_breakdown(df, calc_df)
+        
+        # Merge clinical complexity working columns & SHAP breakdown columns into df
+        for col in ['PRIMARY_COHORT_NAME', 'COHORT_SEVERITY', 'COHORT_3PLUS_FEATURES', 'PRIMARY_OUTLIER_DRIVER']:
+            if col in calc_df.columns:
+                df[col] = calc_df[col].values
+                
+        for col in ['PRIMARY_LETHAL_SHAP_DRIVER', 'SHAP_ATTORNEY_SCORE_USD', 'TOTAL_SHAP_IMPACT_USD', 'MODEL_PREDICTED_SEVERITY_USD']:
+            if col in shap_df.columns:
+                df[col] = shap_df[col].values
         
         t_ser = time.time()
+        # Enrich claim records with matching record-wise bill details from medical_bills_input.xlsx
+        bills_map = load_all_medical_bills_map()
         df_clean = sanitize_df_for_json(df)
         records = df_clean.to_dict(orient="records")
+        for rec in records:
+            jid = str(rec.get("JOB_ID", rec.get("job_id", ""))).strip()
+            norm_jid = jid.upper().replace('_', '-').replace('CLM', 'JOB')
+            if jid in bills_map:
+                rec["bill_rows"] = bills_map[jid]
+            elif norm_jid in bills_map:
+                rec["bill_rows"] = bills_map[norm_jid]
         payload = {
             "status": "success",
             "source_file": os.path.basename(target_file),
