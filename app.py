@@ -13,7 +13,8 @@ import requests
 import pandas as pd
 import numpy as np
 from fastapi import FastAPI, UploadFile, File, HTTPException, Body
-from fastapi.responses import Response
+from fastapi.responses import Response, FileResponse
+from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 import datetime
 from pydantic import BaseModel
@@ -74,8 +75,32 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+def get_dist_dir() -> Optional[str]:
+    """Locate the built React Vite dist directory."""
+    candidates = [
+        os.path.join(os.path.dirname(__file__), "dist"),
+        os.path.join(os.path.dirname(__file__), "frontend", "dist"),
+        os.path.join(os.getcwd(), "dist"),
+        os.path.join(os.getcwd(), "frontend", "dist"),
+    ]
+    for c in candidates:
+        if os.path.exists(c) and os.path.isdir(c) and os.path.exists(os.path.join(c, "index.html")):
+            return c
+    return None
+
+_DIST_DIR = get_dist_dir()
+if _DIST_DIR:
+    _assets_dir = os.path.join(_DIST_DIR, "assets")
+    if os.path.exists(_assets_dir):
+        app.mount("/assets", StaticFiles(directory=_assets_dir), name="static_assets")
+
 @app.get("/")
 def root_endpoint():
+    dist = get_dist_dir()
+    if dist:
+        index_file = os.path.join(dist, "index.html")
+        if os.path.exists(index_file):
+            return FileResponse(index_file)
     active = get_active_input_file()
     return {
         "status": "online",
@@ -325,6 +350,52 @@ def get_active_input_file() -> Optional[str]:
             if os.path.exists(cand) and os.path.getsize(cand) > 100:
                 return cand
 
+    fallback = os.path.join(os.path.dirname(__file__), "sample_real_columns.csv")
+    if os.path.exists(fallback) and os.path.getsize(fallback) > 100:
+        return fallback
+    return None
+
+def get_preview_target_file() -> Optional[str]:
+    """
+    Specifically finds the raw document upload dataset (upload.csv, upload.xlsx, UploadFile.csv, etc.)
+    for the Ingestion Preview screen in Agent 1.
+    """
+    backend_folder = os.path.join(os.path.dirname(__file__), "backend_data")
+    if os.path.exists(backend_folder):
+        # 1. Look for upload / upload_file candidates
+        for f in sorted(os.listdir(backend_folder)):
+            f_lower = f.lower()
+            if (f_lower.startswith("upload") or "upload" in f_lower) and not f_lower.endswith(".json"):
+                cand = os.path.join(backend_folder, f)
+                if os.path.isfile(cand) and os.path.getsize(cand) > 100:
+                    return cand
+        # 2. Fallback to active input file
+        cand = get_active_input_file()
+        if cand:
+            return cand
+    fallback = os.path.join(os.path.dirname(__file__), "sample_real_columns.csv")
+    if os.path.exists(fallback) and os.path.getsize(fallback) > 100:
+        return fallback
+    return None
+
+def get_master_target_file() -> Optional[str]:
+    """
+    Specifically finds the primary claims dataset (input_file.xlsx, input_file.csv, etc.)
+    for clinical complexity calculation, feature engineering, and Agent 2 ML scoring.
+    """
+    backend_folder = os.path.join(os.path.dirname(__file__), "backend_data")
+    if os.path.exists(backend_folder):
+        # 1. Look for input_file candidates
+        for f in sorted(os.listdir(backend_folder)):
+            f_lower = f.lower()
+            if (f_lower.startswith("input_file") or f_lower.startswith("input")) and not f_lower.endswith(".json"):
+                cand = os.path.join(backend_folder, f)
+                if os.path.isfile(cand) and os.path.getsize(cand) > 100:
+                    return cand
+        # 2. Fallback to active input file
+        cand = get_active_input_file()
+        if cand:
+            return cand
     fallback = os.path.join(os.path.dirname(__file__), "sample_real_columns.csv")
     if os.path.exists(fallback) and os.path.getsize(fallback) > 100:
         return fallback
@@ -1056,10 +1127,9 @@ def get_working_dataset():
     41 Features + 8 Domain Scores + 1 Overall Complexity Score + Risk Factor & Outliers
     """
     global _MASTER_CACHE
-    backend_folder = os.path.join(os.path.dirname(__file__), "backend_data")
-    target_file = os.path.join(backend_folder, "input_file.xlsx")
-    if not os.path.exists(target_file):
-        target_file = os.path.join(backend_folder, "upload.csv")
+    target_file = get_master_target_file()
+    if not target_file:
+        raise HTTPException(status_code=404, detail="Working dataset not found.")
         
     mtime = os.path.getmtime(target_file) if os.path.exists(target_file) else 0
     if _MASTER_CACHE["target_file"] == target_file and _MASTER_CACHE["mtime"] == mtime and _MASTER_CACHE["working_payload_json"]:
@@ -1075,12 +1145,12 @@ _PREVIEW_CACHE = {"key": None, "payload_json": None}
 @app.get("/api/preview-data")
 def get_preview_data(limit: int = 200):
     """
-    Specifically loads the active dataset (upload.csv, input_file.xlsx, or sample fallback)
+    Specifically loads the raw upload dataset (upload.csv, upload.xlsx, UploadFile.csv, or fallback)
     for the raw Ingestion Preview table in Agent 1. Returns preview slice of up to `limit` records
-    with full metadata to ensure lightning-fast responses on Azure App Services.
+    with full 65-column metadata to ensure lightning-fast responses on Azure App Services.
     """
     global _PREVIEW_CACHE
-    target_file = get_active_input_file()
+    target_file = get_preview_target_file()
     if not target_file:
         raise HTTPException(status_code=404, detail="No valid preview file found. Please upload a dataset in Data Ingestion.")
         
@@ -1136,12 +1206,12 @@ def get_preview_data(limit: int = 200):
 @app.get("/api/master-data")
 def get_master_backend_data():
     """
-    Loads active dataset for downstream feature derivation,
+    Loads active primary dataset (input_file.xlsx / input_file.csv) for downstream feature derivation,
     complexity scoring, and risk stratification. Employs in-memory caching
     so subsequent calls respond in milliseconds.
     """
     global _MASTER_CACHE
-    target_file = get_active_input_file()
+    target_file = get_master_target_file()
     if not target_file:
         raise HTTPException(status_code=404, detail="No valid master dataset found. Please upload a dataset.")
             
@@ -2100,8 +2170,27 @@ Generate a rigorous medical-legal executive synthesis in valid JSON format.
         }
     }
 
-def health_check():
-    return {"status": "online", "system": "ClaimOptima AI Engine v2.0 with SharePoint Sync & Excel Auto-Export"}
+@app.get("/{full_path:path}")
+async def serve_spa_or_fallback(full_path: str):
+    """Fallback handler for Single Page Application client-side routing and static files."""
+    if full_path.startswith("api/") or full_path.startswith("docs") or full_path.startswith("openapi.json"):
+        raise HTTPException(status_code=404, detail=f"API endpoint '/{full_path}' not found")
+    dist = get_dist_dir()
+    if dist:
+        file_path = os.path.join(dist, full_path)
+        if os.path.exists(file_path) and os.path.isfile(file_path):
+            return FileResponse(file_path)
+        index_file = os.path.join(dist, "index.html")
+        if os.path.exists(index_file):
+            return FileResponse(index_file)
+    active = get_active_input_file()
+    return {
+        "status": "online",
+        "service": "ClaimOptima AI Clinical Complexity & Loss Severity Engine",
+        "active_dataset": os.path.basename(active) if active else "None",
+        "timestamp": datetime.datetime.now().isoformat(),
+        "endpoints": ["/api/preview-data", "/api/master-data", "/api/cohort-intelligence", "/api/working-dataset", "/health"]
+    }
 
 if __name__ == "__main__":
     import os
