@@ -74,6 +74,23 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+@app.get("/")
+def root_endpoint():
+    active = get_active_input_file()
+    return {
+        "status": "online",
+        "service": "ClaimOptima AI Clinical Complexity & Loss Severity Engine",
+        "active_dataset": os.path.basename(active) if active else "None",
+        "timestamp": datetime.datetime.now().isoformat(),
+        "endpoints": ["/api/preview-data", "/api/master-data", "/api/cohort-intelligence", "/api/working-dataset", "/health"]
+    }
+
+@app.get("/health")
+@app.get("/api/health")
+def health_check():
+    return {"status": "healthy", "service": "ClaimOptima-Backend", "timestamp": datetime.datetime.now().isoformat()}
+
+
 CLINICAL_KEYWORDS = [
     "diag", "icd", "injur", "surg", "med", "opioid", "substance", "pain", "chronic", 
     "treatment", "body_part", "neurolog", "hospital", "er_visit", "therapy", "impair",
@@ -192,6 +209,24 @@ def robust_read_csv(contents: bytes) -> pd.DataFrame:
     raise Exception(f"Failed to parse CSV with supported encodings. Last error: {last_err}")
 
 
+def read_any_table_file(filepath: str) -> pd.DataFrame:
+    """Robustly reads Excel or CSV regardless of file extension, casing, or missing extension."""
+    if not os.path.exists(filepath):
+        raise FileNotFoundError(f"File not found: {filepath}")
+        
+    try:
+        with open(filepath, "rb") as f:
+            content = f.read()
+            if content.startswith(b"PK\x03\x04"):
+                return pd.read_excel(io.BytesIO(content))
+            return robust_read_csv(content)
+    except Exception as read_err:
+        try:
+            return pd.read_excel(filepath)
+        except Exception:
+            with open(filepath, "rb") as f2:
+                return robust_read_csv(f2.read())
+
 def get_medical_bills_file() -> Optional[str]:
     """Finds the dedicated record-wise medical bills dataset (medical_bills_input.xlsx)."""
     candidates = [
@@ -211,10 +246,7 @@ def load_all_medical_bills_map() -> Dict[str, List[Dict[str, Any]]]:
     if not bills_file:
         return {}
     try:
-        if bills_file.endswith((".xlsx", ".xls")):
-            b_df = pd.read_excel(bills_file)
-        else:
-            b_df = pd.read_csv(bills_file)
+        b_df = read_any_table_file(bills_file)
         
         # Normalize column names
         cols_lower = {c: str(c).strip().lower().replace(' ', '_').replace('-', '_') for c in b_df.columns}
@@ -268,21 +300,27 @@ def get_active_input_file() -> Optional[str]:
         user_candidates = []
         excluded_names = [
             "claims_complexity_master.csv", "master_derived_dataset.csv", 
-            "medical_bills_input.xlsx", "medical_bills_input.csv",
+            "medical_bills_input.xlsx", "medical_bills_input.csv", "medical_bills_input",
             "sample_bills_data.xlsx", "sample_bills_data.csv",
-            "sample_claims.csv"
+            "sample_claims.csv", "sync_config.json", "llm_config.json"
         ]
+        
+        valid_exts = (".xlsx", ".csv", ".xls", ".tsv")
         for f in os.listdir(backend_folder):
             f_lower = f.lower()
-            if f_lower.endswith((".xlsx", ".csv", ".xls")) and f_lower not in excluded_names and not f_lower.startswith("medical_bills"):
-                cand = os.path.join(backend_folder, f)
-                if os.path.exists(cand) and os.path.getsize(cand) > 100:
+            if f_lower in excluded_names or f_lower.startswith("medical_bills") or f_lower.endswith(".json"):
+                continue
+                
+            cand = os.path.join(backend_folder, f)
+            if os.path.isfile(cand) and os.path.getsize(cand) > 100:
+                if f_lower.endswith(valid_exts) or f_lower in ["input_file", "upload", "upload_file"]:
                     user_candidates.append((os.path.getmtime(cand), cand))
+                    
         if user_candidates:
             user_candidates.sort(key=lambda x: x[0], reverse=True)
             return user_candidates[0][1]
 
-        for pf in ["input_file.xlsx", "upload.csv", "upload.xlsx", "input_file.csv"]:
+        for pf in ["input_file.xlsx", "input_file.csv", "input_file", "upload.xlsx", "upload.csv", "upload"]:
             cand = os.path.join(backend_folder, pf)
             if os.path.exists(cand) and os.path.getsize(cand) > 100:
                 return cand
@@ -291,6 +329,7 @@ def get_active_input_file() -> Optional[str]:
     if os.path.exists(fallback) and os.path.getsize(fallback) > 100:
         return fallback
     return None
+
 
 
 CONFIG_FILE = os.path.join(os.path.dirname(__file__), "backend_data", "sync_config.json")
@@ -1051,11 +1090,7 @@ def get_preview_data(limit: int = 200):
         return Response(content=_PREVIEW_CACHE["payload_json"], media_type="application/json")
         
     try:
-        if target_file.endswith((".xlsx", ".xls")):
-            df = pd.read_excel(target_file)
-        else:
-            with open(target_file, "rb") as f:
-                df = robust_read_csv(f.read())
+        df = read_any_table_file(target_file)
             
         total_count = len(df)
         df_preview = df.head(limit) if limit and limit > 0 and limit < len(df) else df
@@ -1118,16 +1153,13 @@ def get_master_backend_data():
         
     try:
         t_start = time.time()
-        if target_file.endswith((".xlsx", ".xls")):
-            raw_df = pd.read_excel(target_file)
-        else:
-            with open(target_file, "rb") as f:
-                raw_df = robust_read_csv(f.read())
+        raw_df = read_any_table_file(target_file)
         print(f"[master-data] 1. File loaded in {time.time()-t_start:.3f}s, shape: {raw_df.shape}")
         
         t_calc = time.time()
         df = calculate_overall_complexity_for_df(raw_df.copy())
         print(f"[master-data] 2. Complexity calculated in {time.time()-t_calc:.3f}s")
+
         
         # Save two-tab workbook strictly into backend_output/ (zero backend_data pollution)
         calc_df = create_and_save_working_dataset(df, raw_df=raw_df)
