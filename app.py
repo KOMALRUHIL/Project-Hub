@@ -1142,12 +1142,32 @@ def get_working_dataset():
 
 _PREVIEW_CACHE = {"key": None, "payload_json": None}
 
+RAW_65_COLUMNS = [
+    "JOB_ID", "EXTERNAL_JOB_KEY", "LOB", "COMPLETION_DATE", "DateOfSubmission", "DateOfIncident",
+    "INJURY_FOCUS", "age", "weight", "Gender", "attorney_name", "attorney_firm", "employment_status",
+    "demand", "PatientOrClaimantName", "RECORD_ID", "RECORD_TYPE", "valid_record_count", "CREATE_DATE",
+    "accident-claimed-injury-citation", "accident-loss-of-consciousness-citation", "accident-moi-citation",
+    "accident-restrained-citation", "bill-line-item-adjusted-amount", "bill-line-item-ah-write-off",
+    "bill-line-item-allowed-amount", "bill-line-item-billed-amount", "bill-line-item-carrier-paid-amount",
+    "bill-line-item-category", "bill-line-item-citation", "bill-line-item-claimant-paid-amount",
+    "bill-line-item-cpt-codes", "bill-line-item-discrepancy", "bill-line-item-payee", "bill-line-item-quantity",
+    "bill-line-item-relevance", "bill-line-item-service-date", "bill-line-item-substantiated",
+    "bill-line-item-unrelated-tag", "disability-citation", "disability-end-date", "disability-insight-type",
+    "disability-length", "disability-severity", "disability-start-date", "family-medical-history-citation",
+    "general-damages-alcohol-citation", "general-damages-drug-use-citation", "general-damages-use-of-tobacco-citation",
+    "medical-bill-general-billed-amount", "medical-bill-general-discrepancy", "medication-post-injury-citation",
+    "medication-pre-injury-citation", "patient-medical-history-condition-citation", "patient-medical-history-injury-citation",
+    "special-damages-wage-loss-citation", "treatment-diagnosis-citation", "treatment-plan-citation",
+    "employment_relevance", "SOURCE_BATCH", "bill-line-item-comment", "bill-line-item-icd-codes",
+    "bill-line-item-insight-type", "accident-condition-or-injury-citation", "bill-line-item-carrier2-paid-amount"
+]
+
 @app.get("/api/preview-data")
 def get_preview_data(limit: int = 200):
     """
-    Specifically loads the raw upload dataset (upload.csv, upload.xlsx, UploadFile.csv, or fallback)
-    for the raw Ingestion Preview table in Agent 1. Returns preview slice of up to `limit` records
-    with full 65-column metadata to ensure lightning-fast responses on Azure App Services.
+    Dynamically loads the raw upload dataset (upload.csv, upload.xlsx, etc.)
+    for the raw Ingestion Preview table in Agent 1. Returns whatever columns the file contains,
+    with a preview slice of up to `limit` records to ensure lightning-fast responses on Azure.
     """
     global _PREVIEW_CACHE
     target_file = get_preview_target_file()
@@ -1163,7 +1183,8 @@ def get_preview_data(limit: int = 200):
         df = read_any_table_file(target_file)
             
         total_count = len(df)
-        df_preview = df.head(limit) if limit and limit > 0 and limit < len(df) else df
+        df_preview = df.head(limit) if limit and limit > 0 and limit < len(df) else df.copy()
+        
         df_clean = sanitize_df_for_json(df_preview)
         records = df_clean.to_dict(orient="records")
         
