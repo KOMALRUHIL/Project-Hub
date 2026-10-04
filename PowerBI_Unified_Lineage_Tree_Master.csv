@@ -1,0 +1,67 @@
+L1_Domain_Code,L1_Domain_Name,L1_Domain_Points,L1_Domain_SHAP_USD,L2_Feature_Name,L2_Feature_Points,L2_Feature_SHAP_USD,L3_Diagnosis_Occurrence,L3_Matching_Claims_Count,L3_Prevalence_Pct,Clinical_Points_Summary,Financial_SHAP_Summary,Total_Cohort_Claims
+CB,CB Clinical Burden,2.6,18420.0,Number of Diagnoses,19.8,5117.0,lumbar region,1629,54%,L1: +2.6 pts | L2: +19.8 pts,"L1: +$18,420 | L2: +$5,117",3000
+CB,CB Clinical Burden,2.6,18420.0,Number of Diagnoses,19.8,5117.0,M50.20 Other cervical disc displacement,848,28%,L1: +2.6 pts | L2: +19.8 pts,"L1: +$18,420 | L2: +$5,117",3000
+CB,CB Clinical Burden,2.6,18420.0,Number of Diagnoses,19.8,5117.0,unspecified cervical region,848,28%,L1: +2.6 pts | L2: +19.8 pts,"L1: +$18,420 | L2: +$5,117",3000
+CB,CB Clinical Burden,2.6,18420.0,Number of Diagnoses,19.8,5117.0,S06.0X0A Concussion without loss of consciousness,833,28%,L1: +2.6 pts | L2: +19.8 pts,"L1: +$18,420 | L2: +$5,117",3000
+CB,CB Clinical Burden,2.6,18420.0,Number of Diagnoses,19.8,5117.0,S13.4 Sprain of ligaments of cervical spine,828,28%,L1: +2.6 pts | L2: +19.8 pts,"L1: +$18,420 | L2: +$5,117",3000
+CB,CB Clinical Burden,2.6,18420.0,Number of Diagnoses,19.8,5117.0,M51.26 Other intervertebral disc displacement,827,28%,L1: +2.6 pts | L2: +19.8 pts,"L1: +$18,420 | L2: +$5,117",3000
+CB,CB Clinical Burden,2.6,18420.0,Number of Diagnoses,19.8,5117.0,S22.009A Fracture of unspecified thoracic vertebra,818,27%,L1: +2.6 pts | L2: +19.8 pts,"L1: +$18,420 | L2: +$5,117",3000
+CB,CB Clinical Burden,2.6,18420.0,Number of Diagnoses,19.8,5117.0,M54.5 Low back pain,817,27%,L1: +2.6 pts | L2: +19.8 pts,"L1: +$18,420 | L2: +$5,117",3000
+CB,CB Clinical Burden,2.6,18420.0,Number of Diagnoses,19.8,5117.0,S39.012A Strain of muscle,813,27%,L1: +2.6 pts | L2: +19.8 pts,"L1: +$18,420 | L2: +$5,117",3000
+CB,CB Clinical Burden,2.6,18420.0,Number of Diagnoses,19.8,5117.0,fascia and tendon of lower back,811,27%,L1: +2.6 pts | L2: +19.8 pts,"L1: +$18,420 | L2: +$5,117",3000
+CB,CB Clinical Burden,2.6,18420.0,Chronic Disease History,5.1,1279.0,Chronic Disease History - Documented Finding,1050,35%,L1: +2.6 pts | L2: +5.1 pts,"L1: +$18,420 | L2: +$1,279",3000
+CB,CB Clinical Burden,2.6,18420.0,Chronic Disease History,5.1,1279.0,Chronic Disease History - Secondary Confirmation,660,22%,L1: +2.6 pts | L2: +5.1 pts,"L1: +$18,420 | L2: +$1,279",3000
+CB,CB Clinical Burden,2.6,18420.0,Serious Injury Present,3.7,4477.0,Serious Injury Present - Documented Finding,1050,35%,L1: +2.6 pts | L2: +3.7 pts,"L1: +$18,420 | L2: +$4,477",3000
+CB,CB Clinical Burden,2.6,18420.0,Serious Injury Present,3.7,4477.0,Serious Injury Present - Secondary Confirmation,660,22%,L1: +2.6 pts | L2: +3.7 pts,"L1: +$18,420 | L2: +$4,477",3000
+CB,CB Clinical Burden,2.6,18420.0,Repeat Treatment,3.7,3838.0,Repeat Treatment - Documented Finding,1050,35%,L1: +2.6 pts | L2: +3.7 pts,"L1: +$18,420 | L2: +$3,838",3000
+CB,CB Clinical Burden,2.6,18420.0,Repeat Treatment,3.7,3838.0,Repeat Treatment - Secondary Confirmation,660,22%,L1: +2.6 pts | L2: +3.7 pts,"L1: +$18,420 | L2: +$3,838",3000
+CB,CB Clinical Burden,2.6,18420.0,Gap in Treatment,3.1,3198.0,Gap in Treatment - Documented Finding,1050,35%,L1: +2.6 pts | L2: +3.1 pts,"L1: +$18,420 | L2: +$3,198",3000
+CB,CB Clinical Burden,2.6,18420.0,Gap in Treatment,3.1,3198.0,Gap in Treatment - Secondary Confirmation,660,22%,L1: +2.6 pts | L2: +3.1 pts,"L1: +$18,420 | L2: +$3,198",3000
+CB,CB Clinical Burden,2.6,18420.0,Body Parts Injured,2.3,1919.0,Body Parts Injured - Documented Finding,1050,35%,L1: +2.6 pts | L2: +2.3 pts,"L1: +$18,420 | L2: +$1,919",3000
+CB,CB Clinical Burden,2.6,18420.0,Body Parts Injured,2.3,1919.0,Body Parts Injured - Secondary Confirmation,660,22%,L1: +2.6 pts | L2: +2.3 pts,"L1: +$18,420 | L2: +$1,919",3000
+CB,CB Clinical Burden,2.6,18420.0,Surgery Performed,2.2,2558.0,Surgery Performed - Documented Finding,1050,35%,L1: +2.6 pts | L2: +2.2 pts,"L1: +$18,420 | L2: +$2,558",3000
+CB,CB Clinical Burden,2.6,18420.0,Surgery Performed,2.2,2558.0,Surgery Performed - Secondary Confirmation,660,22%,L1: +2.6 pts | L2: +2.2 pts,"L1: +$18,420 | L2: +$2,558",3000
+CB,CB Clinical Burden,2.6,18420.0,Disc Herniated,0.0,640.0,Disc Herniated - Documented Finding,1050,35%,L1: +2.6 pts | L2: +0.0 pts,"L1: +$18,420 | L2: +$640",3000
+CB,CB Clinical Burden,2.6,18420.0,Disc Herniated,0.0,640.0,Disc Herniated - Secondary Confirmation,660,22%,L1: +2.6 pts | L2: +0.0 pts,"L1: +$18,420 | L2: +$640",3000
+CF,CF Care Fragmentation,0.1,14210.0,Number of Providers,14.5,6850.0,Number of Providers - Documented Finding,1050,35%,L1: +0.1 pts | L2: +14.5 pts,"L1: +$14,210 | L2: +$6,850",3000
+CF,CF Care Fragmentation,0.1,14210.0,Number of Providers,14.5,6850.0,Number of Providers - Secondary Confirmation,660,22%,L1: +0.1 pts | L2: +14.5 pts,"L1: +$14,210 | L2: +$6,850",3000
+CF,CF Care Fragmentation,0.1,14210.0,Number of Facilities,13.8,5240.0,Number of Facilities - Documented Finding,1050,35%,L1: +0.1 pts | L2: +13.8 pts,"L1: +$14,210 | L2: +$5,240",3000
+CF,CF Care Fragmentation,0.1,14210.0,Number of Facilities,13.8,5240.0,Number of Facilities - Secondary Confirmation,660,22%,L1: +0.1 pts | L2: +13.8 pts,"L1: +$14,210 | L2: +$5,240",3000
+CF,CF Care Fragmentation,0.1,14210.0,Geographic Dispersion,5.0,2120.0,Geographic Dispersion - Documented Finding,1050,35%,L1: +0.1 pts | L2: +5.0 pts,"L1: +$14,210 | L2: +$2,120",3000
+CF,CF Care Fragmentation,0.1,14210.0,Geographic Dispersion,5.0,2120.0,Geographic Dispersion - Secondary Confirmation,660,22%,L1: +0.1 pts | L2: +5.0 pts,"L1: +$14,210 | L2: +$2,120",3000
+UT,UT Utilization,1.9,11350.0,Hospital Admission,19.5,4820.0,Hospital Admission - Documented Finding,1050,35%,L1: +1.9 pts | L2: +19.5 pts,"L1: +$11,350 | L2: +$4,820",3000
+UT,UT Utilization,1.9,11350.0,Hospital Admission,19.5,4820.0,Hospital Admission - Secondary Confirmation,660,22%,L1: +1.9 pts | L2: +19.5 pts,"L1: +$11,350 | L2: +$4,820",3000
+UT,UT Utilization,1.9,11350.0,ER Visits,14.8,3150.0,ER Visits - Documented Finding,1050,35%,L1: +1.9 pts | L2: +14.8 pts,"L1: +$11,350 | L2: +$3,150",3000
+UT,UT Utilization,1.9,11350.0,ER Visits,14.8,3150.0,ER Visits - Secondary Confirmation,660,22%,L1: +1.9 pts | L2: +14.8 pts,"L1: +$11,350 | L2: +$3,150",3000
+UT,UT Utilization,1.9,11350.0,Therapy Sessions,13.5,2180.0,Therapy Sessions - Documented Finding,1050,35%,L1: +1.9 pts | L2: +13.5 pts,"L1: +$11,350 | L2: +$2,180",3000
+UT,UT Utilization,1.9,11350.0,Therapy Sessions,13.5,2180.0,Therapy Sessions - Secondary Confirmation,660,22%,L1: +1.9 pts | L2: +13.5 pts,"L1: +$11,350 | L2: +$2,180",3000
+UT,UT Utilization,1.9,11350.0,Diagnostic Procedures,14.0,1200.0,Diagnostic Procedures - Documented Finding,1050,35%,L1: +1.9 pts | L2: +14.0 pts,"L1: +$11,350 | L2: +$1,200",3000
+UT,UT Utilization,1.9,11350.0,Diagnostic Procedures,14.0,1200.0,Diagnostic Procedures - Secondary Confirmation,660,22%,L1: +1.9 pts | L2: +14.0 pts,"L1: +$11,350 | L2: +$1,200",3000
+MC,MC Medication Complexity,1.6,8920.0,Polypharmacy,17.5,3840.0,Polypharmacy - Documented Finding,1050,35%,L1: +1.6 pts | L2: +17.5 pts,"L1: +$8,920 | L2: +$3,840",3000
+MC,MC Medication Complexity,1.6,8920.0,Polypharmacy,17.5,3840.0,Polypharmacy - Secondary Confirmation,660,22%,L1: +1.6 pts | L2: +17.5 pts,"L1: +$8,920 | L2: +$3,840",3000
+MC,MC Medication Complexity,1.6,8920.0,Opioid Usage,19.0,2980.0,Opioid Usage - Documented Finding,1050,35%,L1: +1.6 pts | L2: +19.0 pts,"L1: +$8,920 | L2: +$2,980",3000
+MC,MC Medication Complexity,1.6,8920.0,Opioid Usage,19.0,2980.0,Opioid Usage - Secondary Confirmation,660,22%,L1: +1.6 pts | L2: +19.0 pts,"L1: +$8,920 | L2: +$2,980",3000
+MC,MC Medication Complexity,1.6,8920.0,Controlled Substances,16.0,1450.0,Controlled Substances - Documented Finding,1050,35%,L1: +1.6 pts | L2: +16.0 pts,"L1: +$8,920 | L2: +$1,450",3000
+MC,MC Medication Complexity,1.6,8920.0,Controlled Substances,16.0,1450.0,Controlled Substances - Secondary Confirmation,660,22%,L1: +1.6 pts | L2: +16.0 pts,"L1: +$8,920 | L2: +$1,450",3000
+MC,MC Medication Complexity,1.6,8920.0,High-Risk Medication,25.0,650.0,High-Risk Medication - Documented Finding,1050,35%,L1: +1.6 pts | L2: +25.0 pts,"L1: +$8,920 | L2: +$650",3000
+MC,MC Medication Complexity,1.6,8920.0,High-Risk Medication,25.0,650.0,High-Risk Medication - Secondary Confirmation,660,22%,L1: +1.6 pts | L2: +25.0 pts,"L1: +$8,920 | L2: +$650",3000
+CD,CD Claim Details,0.6,7450.0,Attorney Representation,18.0,3950.0,Attorney Representation - Documented Finding,1050,35%,L1: +0.6 pts | L2: +18.0 pts,"L1: +$7,450 | L2: +$3,950",3000
+CD,CD Claim Details,0.6,7450.0,Attorney Representation,18.0,3950.0,Attorney Representation - Secondary Confirmation,660,22%,L1: +0.6 pts | L2: +18.0 pts,"L1: +$7,450 | L2: +$3,950",3000
+CD,CD Claim Details,0.6,7450.0,Coverage Dispute / Unsubstantiated,17.2,2100.0,Coverage Dispute / Unsubstantiated - Documented Finding,1050,35%,L1: +0.6 pts | L2: +17.2 pts,"L1: +$7,450 | L2: +$2,100",3000
+CD,CD Claim Details,0.6,7450.0,Coverage Dispute / Unsubstantiated,17.2,2100.0,Coverage Dispute / Unsubstantiated - Secondary Confirmation,660,22%,L1: +0.6 pts | L2: +17.2 pts,"L1: +$7,450 | L2: +$2,100",3000
+CD,CD Claim Details,0.6,7450.0,Claim Amount,15.0,1400.0,Claim Amount - Documented Finding,1050,35%,L1: +0.6 pts | L2: +15.0 pts,"L1: +$7,450 | L2: +$1,400",3000
+CD,CD Claim Details,0.6,7450.0,Claim Amount,15.0,1400.0,Claim Amount - Secondary Confirmation,660,22%,L1: +0.6 pts | L2: +15.0 pts,"L1: +$7,450 | L2: +$1,400",3000
+AD,AD Accident Details,0.4,5680.0,Head Impact with LOC,18.8,3480.0,Head Impact with LOC - Documented Finding,1050,35%,L1: +0.4 pts | L2: +18.8 pts,"L1: +$5,680 | L2: +$3,480",3000
+AD,AD Accident Details,0.4,5680.0,Head Impact with LOC,18.8,3480.0,Head Impact with LOC - Secondary Confirmation,660,22%,L1: +0.4 pts | L2: +18.8 pts,"L1: +$5,680 | L2: +$3,480",3000
+AD,AD Accident Details,0.4,5680.0,Multi-Vehicle Collision,14.0,2200.0,Multi-Vehicle Collision - Documented Finding,1050,35%,L1: +0.4 pts | L2: +14.0 pts,"L1: +$5,680 | L2: +$2,200",3000
+AD,AD Accident Details,0.4,5680.0,Multi-Vehicle Collision,14.0,2200.0,Multi-Vehicle Collision - Secondary Confirmation,660,22%,L1: +0.4 pts | L2: +14.0 pts,"L1: +$5,680 | L2: +$2,200",3000
+DM,DM Claimant Details,0.4,4120.0,Age Tier (>60 Yrs),14.2,2150.0,Age Tier (>60 Yrs) - Documented Finding,1050,35%,L1: +0.4 pts | L2: +14.2 pts,"L1: +$4,120 | L2: +$2,150",3000
+DM,DM Claimant Details,0.4,4120.0,Age Tier (>60 Yrs),14.2,2150.0,Age Tier (>60 Yrs) - Secondary Confirmation,660,22%,L1: +0.4 pts | L2: +14.2 pts,"L1: +$4,120 | L2: +$2,150",3000
+DM,DM Claimant Details,0.4,4120.0,Return to Work Delay,16.8,1420.0,Return to Work Delay - Documented Finding,1050,35%,L1: +0.4 pts | L2: +16.8 pts,"L1: +$4,120 | L2: +$1,420",3000
+DM,DM Claimant Details,0.4,4120.0,Return to Work Delay,16.8,1420.0,Return to Work Delay - Secondary Confirmation,660,22%,L1: +0.4 pts | L2: +16.8 pts,"L1: +$4,120 | L2: +$1,420",3000
+DM,DM Claimant Details,0.4,4120.0,BMI Obesity Class II+,12.5,550.0,BMI Obesity Class II+ - Documented Finding,1050,35%,L1: +0.4 pts | L2: +12.5 pts,"L1: +$4,120 | L2: +$550",3000
+DM,DM Claimant Details,0.4,4120.0,BMI Obesity Class II+,12.5,550.0,BMI Obesity Class II+ - Secondary Confirmation,660,22%,L1: +0.4 pts | L2: +12.5 pts,"L1: +$4,120 | L2: +$550",3000
+SE,SE Socioeconomic Factors,0.0,2850.0,Diagnosed Depression / Anxiety,15.5,1950.0,Diagnosed Depression / Anxiety - Documented Finding,1050,35%,L1: +0.0 pts | L2: +15.5 pts,"L1: +$2,850 | L2: +$1,950",3000
+SE,SE Socioeconomic Factors,0.0,2850.0,Diagnosed Depression / Anxiety,15.5,1950.0,Diagnosed Depression / Anxiety - Secondary Confirmation,660,22%,L1: +0.0 pts | L2: +15.5 pts,"L1: +$2,850 | L2: +$1,950",3000
+SE,SE Socioeconomic Factors,0.0,2850.0,Substance Use History,16.5,900.0,Substance Use History - Documented Finding,1050,35%,L1: +0.0 pts | L2: +16.5 pts,"L1: +$2,850 | L2: +$900",3000
+SE,SE Socioeconomic Factors,0.0,2850.0,Substance Use History,16.5,900.0,Substance Use History - Secondary Confirmation,660,22%,L1: +0.0 pts | L2: +16.5 pts,"L1: +$2,850 | L2: +$900",3000
